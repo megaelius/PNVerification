@@ -6,11 +6,13 @@ Official implementation in PyTorch for Polynomial Networks (PN) training and ver
 
 ## Requirements
 
-In order to run the experiments we need `python >= 3.7.0` and [gurobi](https://www.gurobi.com/downloads/?campaignid=2027425882&adgroupid=77414946611&creative=355014679679&keyword=gurobi&matchtype=e&gclid=CjwKCAjwi6WSBhA-EiwA6Niok7KcFMgS04sRvNaFqDpJ5biOSLToyu_OKo25zwFkgDyoh58fb4eYvhoCmcoQAvD_BwE) to be installed. Then we can install the required python libraries with:
+In order to run the experiments we need `python >= 3.7.0` to be installed. Then we can install the required python libraries with:
 
 ```
 pip3 install -r requirements.txt
 ```
+
+In order to run some special benchmarks, [gurobi](https://www.gurobi.com/downloads/?campaignid=2027425882&adgroupid=77414946611&creative=355014679679&keyword=gurobi&matchtype=e&gclid=CjwKCAjwi6WSBhA-EiwA6Niok7KcFMgS04sRvNaFqDpJ5biOSLToyu_OKo25zwFkgDyoh58fb4eYvhoCmcoQAvD_BwE) is needed.
 
 ## Source code
 
