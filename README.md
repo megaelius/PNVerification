@@ -1,6 +1,6 @@
 # Sound and Complete Verification of Polynomial Networks
 
-Official implementation in PyTorch for Polynomial Networks (PN) training and verification.
+Official implementation in PyTorch of the paper "Sound and Complete Verification of Polynomial Networks".
 
 ![Overview of our method](figures/method.jpeg)
 
