@@ -132,7 +132,6 @@ def verify(net,test_loader,args, device):
 
             pd_df = pd.DataFrame.from_dict(df,orient='columns')
             pd_df.to_csv(csv_path,index=False)
-    return False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Complete and sound verification through branch and bound and interval propagation')
@@ -177,9 +176,6 @@ if __name__ == '__main__':
                 for i in range(1,len(net.degree_list)+1):
                     setattr(net,f'Poly{i}' , PN.from_CCP_Conv_to_CCP(getattr(net,f'Poly{i}'), device))
         net.compute_signs(device)
-        timed_out = verify(net,test_loader,args,device)
-        if timed_out:
-            filename = generate_aux_file(args, net)
-            subprocess.Popen(['sbatch',filename])
+        verify(net,test_loader,args,device)
     else:
         print('ERROR: weights and dataset don\'t match.')

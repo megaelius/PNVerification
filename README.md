@@ -49,7 +49,7 @@ In order to verify a PN over a dataset we only need to run script `verify_PN.py`
     - alpha-conv: Alpha-convexification lower bound
 - `--alpha_method`: [L] Use the Uniform diagonal shift (L) or the Non-uniform diagonal shift (alphas) approach. Only relevant when using `--bounds alpha-conv`
 
-For more details run `python3 verify_PN.py --help`.
+For more details run `python3 verify_PN.py --help`. To run a test example with a 4th degree PN trained in MNIST (`weights/Prod_Poly_CCP_0_0_order_[4]_hidden_[100]_mnist_resize_0_best.pt`) at `epsilon=0.005` simply run `python3 verify_PN.py`.
 
 The aforementioned code generates a `.csv` file in the form:
 
