@@ -1,8 +1,10 @@
 # Sound and Complete Verification of Polynomial Networks
 
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)[![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)[![ArXiv](https://img.shields.io/badge/Preprint-ArXiv-red?style=for-the-badge)](https://arxiv.org/abs/2209.07235)
+
 Official implementation in PyTorch of the **NeurIPS'22 paper "Sound and Complete Verification of Polynomial Networks"**.
 
-![Overview of our method](figures/method.jpeg)
+![Overview of our method](figures/method.png)
 
 ## Requirements
 
