@@ -114,5 +114,3 @@ if __name__ == '__main__':
                 pd_df.to_csv(os.path.join(args.output,f'{args.architecture}_{args.augment}_order_{net.n_degree}_shared_weights_hidden_{net.hidden_size}_'+ args.dataset.lower()+ ('_PGD' if args.attack else '')+ f'_resize_{args.resize}' + '_best.csv'),index=False)
         else:
             pd_df.to_csv(os.path.join(args.output, f'{args.architecture}_{args.arch_in}_{args.augment}_{args.bn}_order_{net.degree_list}_hidden_{net.hidden_sizes}_'+ args.dataset.lower()+ ('_PGD' if args.attack else '')+ f'_resize_{args.resize}' + '_best.csv'),index=False)
-        if hasattr(net,'w'):
-            print('heyyyyy',net.Poly1.w)
