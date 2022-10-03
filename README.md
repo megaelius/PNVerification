@@ -1,6 +1,6 @@
 # Sound and Complete Verification of Polynomial Networks
 
-Official implementation in PyTorch of the paper "Sound and Complete Verification of Polynomial Networks".
+Official implementation in PyTorch of the **NeurIPS'22 paper "Sound and Complete Verification of Polynomial Networks"**.
 
 ![Overview of our method](figures/method.jpeg)
 
@@ -16,7 +16,7 @@ In order to run some special benchmarks, [gurobi](https://www.gurobi.com/downloa
 
 ## Source code
 
-The implementation is divided in two main files: `utils_PN.py` and `utils_BaB.py`. In the former, PN related classes and functions are stored, whereas the latter contains Branch and Bound methods for our verification algorithm.
+The implementation is divided in two main files: `utils_PN.py` and `utils_BaB.py`. In the former, polynomial network (PN) related classes and functions are stored, whereas the latter contains Branch and Bound methods for our verification algorithm.
 
 Additional methods for employing [DeepT-Fast](https://dl.acm.org/doi/abs/10.1145/3453483.3454056) in the case of PNs are present in `utils_zonotopes.py`.
 
