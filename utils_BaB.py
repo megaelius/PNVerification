@@ -7,6 +7,9 @@ import time
 import utils_zonotopes as UZ
 
 def check_feasible(l,u,z):
+    '''
+    Check l<=z<=u In case of failure, return difference of problematic vars.
+    '''
     for i in range(len(z)):
         if l[i] - z[i] > 1e-12:
             return False, l[i] - z[i]
@@ -15,18 +18,22 @@ def check_feasible(l,u,z):
     return True, None
 
 class PQItem:
+    '''
+    Subproblem instance in the BaB procedure.
+    '''
     def __init__(self, L, U, l, u, mm, c, axis, depth, alpha, rule = 'upper'):
 
-        self.L = L
-        self.U = U
-        self.l = l
-        self.u = u
+        self.L = L #Lower bound of the global minima
+        self.U = U #Upper bound
+        self.l = l #Input lower bound
+        self.u = u #Input upper bound
         self.mm = mm
         self.c = c
-        self.axis = axis
-        self.depth = depth
-        self.alpha = alpha
+        self.axis = axis #previously split axis
+        self.depth = depth #subproblem depth
+        self.alpha = alpha #alpha guaranteeng convexity in this suproblem
 
+        # Define order between items
         if rule == 'upper':
             self.crit = U
         elif rule == 'width':
@@ -38,6 +45,10 @@ class PQItem:
         return self.crit < other.crit
 
 def subproblems(l,u,axis,n_branches):
+    '''
+    split input set defined by "l" and "u" into "n_branches" subsets by splitting
+    interval in "axis" axis.
+    '''
     ls = []
     us = []
     la, ua = l[0,axis], u[0,axis]
@@ -50,6 +61,9 @@ def subproblems(l,u,axis,n_branches):
     return torch.cat(ls), torch.cat(us)
 
 def PGD(net,device,l,u,tc,ac,alpha, lr = 1, gamma = 0.95, debug = False, start = None):
+    '''
+    Projected gradient descent algorithm over the verification objective.
+    '''
     prev_z = l.clone()
     if start is None:
         z = ((l+u)/2)
@@ -80,6 +94,9 @@ def PGD(net,device,l,u,tc,ac,alpha, lr = 1, gamma = 0.95, debug = False, start =
 
 
 def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = 'PGD'):
+    '''
+    Get bounds of the global minima for a single subproblem.
+    '''
     if debug:
         print('Getting bounds:')
     mm = None
@@ -152,6 +169,9 @@ def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = '
     return L, U, bestz, mm, c
 
 def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_old,u_old,debug = False, optim = 'PGD'):
+    '''
+    Get bounds of the global minima for a batch of subproblems.
+    '''
     if debug:
         print('Getting bounds:')
     mmb = [None for i in range(lb.shape[0])]
@@ -259,6 +279,9 @@ def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_o
     return Lb, Ub, zb, mmb, cb
 
 def get_best_axis(net,device,tc,ac,l,u,alpha,l_diag_h,u_diag_h,rule='widest'):
+    '''
+    Get best axis to split a sumproblem based on different rules given by variable "rule".
+    '''
     if rule == 'widest':
         return torch.argmax((u-l).squeeze())
     elif rule == 'intervals':
@@ -277,6 +300,9 @@ def get_best_axis(net,device,tc,ac,l,u,alpha,l_diag_h,u_diag_h,rule='widest'):
 
 
 def solve_BaB(net,tc,ac,l,u,z0,start_time,device,maxtime = None,maxit = None,go_for_global_minima = False, picking_rule = 'upper', n_branches = 4, bounds = 'intervals', bounds_upper = 'PGD', axis_rule = 'intervals', optim = 'PGD', alpha_update_freq = 100, alpha_method = 'L', debug = False, track_improvement = False):
+    '''
+    Main function of our Branch and Bound algorithm.
+    '''
     d = u.shape[0]
     tol = 1e-6
     #l = torch.Tensor(l).unsqueeze(0).to(device)

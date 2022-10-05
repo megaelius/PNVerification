@@ -15,6 +15,10 @@ import utils_PN as PN
 import utils_BaB as UBAB
 
 def solve_gurobi(net,tc,ac,l,u,debug = False):
+    '''
+    Verify 2nd order PNs by expressing the verification problem as a QCLP
+    and solving with GUROBI.
+    '''
     with gp.Env(empty=True) as env:
         env.setParam('OutputFlag', int(debug))
         env.start()
@@ -45,6 +49,9 @@ def solve_gurobi(net,tc,ac,l,u,debug = False):
     return bestz, L, U, sol
 
 def verify(net,test_loader,args, device):
+    '''
+    Verify "net" in the first 1000 inputs from "test_loader".
+    '''
     start_job = time.time()
     if not hasattr(net,'hidden_sizes'):
         net.hidden_sizes = net.hidden_size
