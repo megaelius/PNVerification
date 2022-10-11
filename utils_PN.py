@@ -177,29 +177,25 @@ class CCP(nn.Module):
             self.Cn.weight.copy_(self.C.weight*(self.C.weight < 0))
 
     def forward_bounds(self,l,u):
-        lxi = (self.U1p(l) + self.U1n(u)).unsqueeze(-1)
-        uxi = (self.U1p(u) + self.U1n(l)).unsqueeze(-1)
-        #print(getattr(self, 'U{}'.format(2))(l) * uxi.squeeze(-1) + uxi.squeeze(-1))
-        for i in range(2, self.n_degree + 1):
+        with torch.no_grad():
+            lxi = (self.U1p(l) + self.U1n(u)).unsqueeze(-1)
+            uxi = (self.U1p(u) + self.U1n(l)).unsqueeze(-1)
+            #print(getattr(self, 'U{}'.format(2))(l) * uxi.squeeze(-1) + uxi.squeeze(-1))
+            for i in range(2, self.n_degree + 1):
 
-            if not self.weight_sharing:
                 lxi_ = (getattr(self, 'U{}p'.format(i))(l) + getattr(self, 'U{}n'.format(i))(u) + 1).unsqueeze(-1)
                 uxi_ = (getattr(self, 'U{}p'.format(i))(u) + getattr(self, 'U{}n'.format(i))(l) + 1).unsqueeze(-1)
-            else:
-                lxi_ = (getattr(self, 'U{}p'.format(i))(l) + getattr(self, 'U{}n'.format(1))(u) + 1).unsqueeze(-1)
-                uxi_ = (getattr(self, 'U{}p'.format(i))(u) + getattr(self, 'U{}n'.format(1))(l) + 1).unsqueeze(-1)
+                S = torch.cat((lxi_*lxi.view(lxi_.shape), lxi_*uxi.view(lxi_.shape), uxi_*lxi.view(lxi_.shape), uxi_*uxi.view(lxi_.shape)),dim = -1)
+                uxi, _ = torch.max(S,-1, keepdim = True)
+                lxi, _ = torch.min(S,-1, keepdim = True)
+                #print(uxi, lxi)
 
-            S = torch.cat((lxi_*lxi, lxi_*uxi, uxi_*lxi, uxi_*uxi),dim = -1)
-            uxi, _ = torch.max(S,-1, keepdim = True)
-            lxi, _ = torch.min(S,-1, keepdim = True)
-            #print(uxi, lxi)
+            lxi = lxi.squeeze(-1)
+            uxi = uxi.squeeze(-1)
 
-        lxi = lxi.squeeze(-1)
-        uxi = uxi.squeeze(-1)
-
-        lout = self.Cp(lxi) + self.Cn(uxi) + self.C.bias
-        uout = self.Cp(uxi) + self.Cn(lxi) + self.C.bias
-        return lout, uout
+            lout = self.Cp(lxi) + self.Cn(uxi) + self.C.bias
+            uout = self.Cp(uxi) + self.Cn(lxi) + self.C.bias
+            return lout, uout
 
     def forward_bounds_intermediate(self,l,u, level):
         lxi = (self.U1p(l) + self.U1n(u)).unsqueeze(-1)
@@ -207,17 +203,11 @@ class CCP(nn.Module):
         #print(getattr(self, 'U{}'.format(2))(l) * uxi.squeeze(-1) + uxi.squeeze(-1))
         for i in range(2, level + 1):
 
-            if not self.weight_sharing:
-                lxi_ = (getattr(self, 'U{}p'.format(i))(l) + getattr(self, 'U{}n'.format(i))(u) + 1).unsqueeze(-1)
-                uxi_ = (getattr(self, 'U{}p'.format(i))(u) + getattr(self, 'U{}n'.format(i))(l) + 1).unsqueeze(-1)
-            else:
-                lxi_ = (getattr(self, 'U{}p'.format(i))(l) + getattr(self, 'U{}n'.format(1))(u) + 1).unsqueeze(-1)
-                uxi_ = (getattr(self, 'U{}p'.format(i))(u) + getattr(self, 'U{}n'.format(1))(l) + 1).unsqueeze(-1)
-
-            S = torch.cat((lxi_*lxi, lxi_*uxi, uxi_*lxi, uxi_*uxi),dim = -1)
+            lxi_ = (getattr(self, 'U{}p'.format(i))(l) + getattr(self, 'U{}n'.format(i))(u) + 1).unsqueeze(-1)
+            uxi_ = (getattr(self, 'U{}p'.format(i))(u) + getattr(self, 'U{}n'.format(i))(l) + 1).unsqueeze(-1)
+            S = torch.cat((lxi_*lxi.view(lxi_.shape), lxi_*uxi.view(lxi_.shape), uxi_*lxi.view(lxi_.shape), uxi_*uxi.view(lxi_.shape)),dim = -1)
             uxi, _ = torch.max(S,-1)
             lxi, _ = torch.min(S,-1)
-            #print(uxi, lxi)
 
         return lxi,uxi
 
@@ -304,7 +294,7 @@ class CCP(nn.Module):
                 UAz = getattr(self,f'U{level}p').weight.data*torch.matmul(ug.transpose(0,1), z.transpose(0,1)) + getattr(self,f'U{level}n').weight.data*torch.matmul(lg.transpose(0,1), z.transpose(0,1)) + ug.transpose(0,1)*torch.matmul(getattr(self,f'U{level}p').weight.data, z.transpose(0,1)) + lg.transpose(0,1)*torch.matmul(getattr(self,f'U{level}n').weight.data, z.transpose(0,1))
                 LA1 = getattr(self,f'U{level}p').weight.data*torch.sum(lg, 0).unsqueeze(-1) + getattr(self,f'U{level}n').weight.data*torch.sum(ug, 0).unsqueeze(-1) + lg.transpose(0,1)*torch.sum(getattr(self,f'U{level}p').weight.data,1, keepdim = True) + ug.transpose(0,1)*torch.sum(getattr(self,f'U{level}n').weight.data, 1, keepdim = True)
                 UA1 = getattr(self,f'U{level}p').weight.data*torch.sum(ug, 0).unsqueeze(-1) + getattr(self,f'U{level}n').weight.data*torch.sum(lg, 0).unsqueeze(-1) + ug.transpose(0,1)*torch.sum(getattr(self,f'U{level}p').weight.data,1, keepdim = True) + lg.transpose(0,1)*torch.sum(getattr(self,f'U{level}n').weight.data, 1, keepdim = True)
-                
+
                 UAz = torch.sum(UAz.transpose(0,1),dim = -1, keepdim=True)
                 LAz = torch.sum(LAz.transpose(0,1),dim = -1, keepdim=True)
                 LA1 = torch.sum(LA1.transpose(0,1),dim = -1, keepdim=True)
@@ -318,7 +308,7 @@ class CCP(nn.Module):
                 uxlev, _ = torch.max(S1,-1)
 
                 LAz_prev, UAz_prev, LA1_prev, UA1_prev = self.L_hessian_recursive(l,u,lxlev,uxlev,z,level-1,device)
-                
+
                 return LAz + LAz_prev, UAz + UAz_prev, LA1 + LA1_prev, UA1 + UA1_prev
 
     def evaluate_L_hessian(self,tc,ac,l,u,z,device):
