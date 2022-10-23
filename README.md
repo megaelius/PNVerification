@@ -71,7 +71,7 @@ Id, True_class, Predicted_class, Logit, Epsilon, Time, Finish_code, Adversary_cl
 
   title = {Sound and Complete Verification of Polynomial Networks},
 
-  booktitle = {Advances in neural information processing systems (NeurIPS)}
+  booktitle = {Advances in neural information processing systems (NeurIPS)},
 
   year = {2022}
 }
