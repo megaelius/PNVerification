@@ -6,10 +6,11 @@ from queue import PriorityQueue
 import time
 import utils_zonotopes as UZ
 
+'''
+--------------------------------------------------------------------------------------------------------
+'''
+
 def check_feasible(l,u,z):
-    '''
-    Check l<=z<=u In case of failure, return difference of problematic vars.
-    '''
     for i in range(len(z)):
         if l[i] - z[i] > 1e-12:
             return False, l[i] - z[i]
@@ -18,22 +19,18 @@ def check_feasible(l,u,z):
     return True, None
 
 class PQItem:
-    '''
-    Subproblem instance in the BaB procedure.
-    '''
     def __init__(self, L, U, l, u, mm, c, axis, depth, alpha, rule = 'upper'):
 
-        self.L = L #Lower bound of the global minima
-        self.U = U #Upper bound
-        self.l = l #Input lower bound
-        self.u = u #Input upper bound
+        self.L = L
+        self.U = U
+        self.l = l
+        self.u = u
         self.mm = mm
         self.c = c
-        self.axis = axis #previously split axis
-        self.depth = depth #subproblem depth
-        self.alpha = alpha #alpha guaranteeng convexity in this suproblem
+        self.axis = axis
+        self.depth = depth
+        self.alpha = alpha
 
-        # Define order between items
         if rule == 'upper':
             self.crit = U
         elif rule == 'width':
@@ -45,10 +42,6 @@ class PQItem:
         return self.crit < other.crit
 
 def subproblems(l,u,axis,n_branches):
-    '''
-    split input set defined by "l" and "u" into "n_branches" subsets by splitting
-    interval in "axis" axis.
-    '''
     ls = []
     us = []
     la, ua = l[0,axis], u[0,axis]
@@ -60,10 +53,33 @@ def subproblems(l,u,axis,n_branches):
         us[i-1][0,axis] = ((i)/n_branches)*ua + (1 - ((i)/n_branches))*la
     return torch.cat(ls), torch.cat(us)
 
+def power_method(M,device,shift=0,debug=False):
+    if debug:
+        print('Computing min_eig:')
+    with torch.no_grad():
+        d = M.shape[0]
+        z = torch.rand((d,1), device = device)
+        z = z/(torch.sqrt((z*z).sum()))
+        prev_z = torch.ones((d,1), device = device)
+        diff = 1
+        while not diff < 1e-3:
+            #Each iteration we do two steps because if the dominant eigenvalue is negative,
+            #with a single step prev_z = -z and never converges.
+            prev_z = z.clone()
+            z = torch.matmul(M,z) - shift*z
+            min_eig = torch.sqrt((z*z).sum())
+            sign_eig = 1-2*(((z/prev_z)[0,0]) < 0)
+            z = z/min_eig
+            z = torch.matmul(M,z) - shift*z
+            min_eig = torch.sqrt((z*z).sum())
+            z = z/min_eig
+            if debug:
+                print(min_eig,torch.sum(torch.abs(z-prev_z)))
+            diff = torch.sum(torch.abs(z-prev_z))
+        return min_eig, sign_eig*min_eig
+
+
 def PGD(net,device,l,u,tc,ac,alpha, lr = 1, gamma = 0.95, debug = False, start = None):
-    '''
-    Projected gradient descent algorithm over the verification objective.
-    '''
     prev_z = l.clone()
     if start is None:
         z = ((l+u)/2)
@@ -72,7 +88,7 @@ def PGD(net,device,l,u,tc,ac,alpha, lr = 1, gamma = 0.95, debug = False, start =
     z.requires_grad = True
     grad = [1 for i in range(z.shape[1])]
     first = True
-    while first or not torch.sum(torch.abs(z-prev_z)) < (1e-6)*z.shape[0]:
+    while first or not torch.sum(torch.abs(z-prev_z)) < (1e-6):
         z.requires_grad = True
         output = net(z)
         #print(hasattr(alpha, 'shape'))
@@ -94,9 +110,6 @@ def PGD(net,device,l,u,tc,ac,alpha, lr = 1, gamma = 0.95, debug = False, start =
 
 
 def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = 'PGD'):
-    '''
-    Get bounds of the global minima for a single subproblem.
-    '''
     if debug:
         print('Getting bounds:')
     mm = None
@@ -119,8 +132,8 @@ def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = '
 
     elif bounds == 'alpha-conv':
         if optim == 'PGD':
-            #net.compute_min_eig(tc,ac,l,u,device, debug = debug)
             bestz, L = PGD(net,device,l,u,tc,ac,-net.min_eig,debug = False)
+            #bestz, L = PGD(net,device,l,u,tc,ac,-net.min_eig,debug = debug)
         elif optim == 'gurobi':
             lnp = l.squeeze().numpy()
             unp = u.squeeze().numpy()
@@ -151,12 +164,12 @@ def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = '
                         # Run optimization engine
                         m.optimize()
                         L = m.getObjective().getValue()
-                        bestz = torch.Tensor(m.getAttr('X')).unsqueeze(0)
+                        bestz = torch.tensor(m.getAttr('X')).unsqueeze(0)
     elif bounds == 'zonotopes':
         if hasattr(net, 'Poly1'):
-            w,c = UZ.abstract_PN(net.Poly1,l,u,precise = False)
+            w,c = UZ.abstract_PN(net.Poly1,l,u,device,precise = False)
         else:
-            w,c = UZ.abstract_PN(net,l,u,precise = False)
+            w,c = UZ.abstract_PN(net,l,u,device,precise = False)
         bestz = (l + u)/2
         L = -torch.sum(torch.abs(w[tc] - w[ac])) + c[tc] - c[ac]
 
@@ -165,13 +178,13 @@ def get_bounds(net,tc,ac,l,u,bounds,bounds_upper,device,debug = False, optim = '
             output = net(bestz.to(device))
             U = (output[0,tc] - output[0,ac]).item()
     elif bounds_upper == 'PGD':
-        bestz, U = PGD(net,device,l,u,tc,ac,0,debug=False)
+        if hasattr(net,'activation'):
+            _, U = PGD(net,device,l,u,tc,ac,0,lr = 100,debug=False)
+        else:
+            _, U = PGD(net,device,l,u,tc,ac,0,debug=False)
     return L, U, bestz, mm, c
 
 def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_old,u_old,debug = False, optim = 'PGD'):
-    '''
-    Get bounds of the global minima for a batch of subproblems.
-    '''
     if debug:
         print('Getting bounds:')
     mmb = [None for i in range(lb.shape[0])]
@@ -202,7 +215,7 @@ def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_o
             zb.append(bestz)
             L = bestz.squeeze().numpy() @ mm + c
             Lb.append(L)
-        Lb = torch.Tensor(Lb)
+        Lb = torch.tensor(Lb)
         zb = torch.cat(zb)
 
     elif bounds == 'alpha-conv':
@@ -211,7 +224,7 @@ def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_o
             Lb = []
             for l,u in zip(lb,ub):
                 #net.compute_min_eig(tc,ac,l.unsqueeze(0),u.unsqueeze(0),device, debug = debug)
-                bestz, L = PGD(net,device,l.unsqueeze(0),u.unsqueeze(0),tc,ac,-net.min_eig,debug = False)
+                bestz, L = PGD(net,device,l.unsqueeze(0),u.unsqueeze(0),tc,ac,-net.min_eig,debug = debug)
                 zb.append(bestz)
                 Lb.append(L)
             zb = torch.cat(zb)
@@ -250,19 +263,19 @@ def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_o
                         # Run optimization engine
                         m.optimize()
                         L = m.getObjective().getValue()
-                        bestz = torch.Tensor(m.getAttr('X')).unsqueeze(0)
+                        bestz = torch.tensor(m.getAttr('X')).unsqueeze(0)
                         Lb.append(L)
                         zb.append(bestz)
-            Lb = torch.Tensor(Lb)
+            Lb = torch.tensor(Lb)
             zb = torch.cat(zb)
     elif bounds == 'zonotopes':
         zb = []
         Lb = []
         for l,u in zip(lb,ub):
             if hasattr(net, 'Poly1'):
-                w,c = UZ.abstract_PN(net.Poly1,l,u,precise = False)
+                w,c = UZ.abstract_PN(net.Poly1,l,u,device,precise = False)
             else:
-                w,c = UZ.abstract_PN(net,l,u,precise = False)
+                w,c = UZ.abstract_PN(net,l,u,device,precise = False)
             bestz = (l + u)/2
             L = (-torch.sum(torch.abs(w[tc] - w[ac])) + c[tc] - c[ac]).unsqueeze(0)
             zb.append(bestz)
@@ -275,13 +288,13 @@ def get_bounds_batch(net,tc,ac,lb,ub,bounds,bounds_upper,device,mm_old,c_old,l_o
             output = net(zb.to(device))
             Ub = output[:,tc] - output[:,ac]
     elif bounds_upper == 'PGD':
-        zb, Ub = PGD(net,device,lb,ub,tc,ac,0,debug=False)
+        if hasattr(net,'activation'):
+            zb, Ub = PGD(net,device,lb,ub,tc,ac,0,lr = 100,debug=False)
+        else:
+            zb, Ub = PGD(net,device,lb,ub,tc,ac,0,debug=False)
     return Lb, Ub, zb, mmb, cb
 
 def get_best_axis(net,device,tc,ac,l,u,alpha,l_diag_h,u_diag_h,rule='widest'):
-    '''
-    Get best axis to split a sumproblem based on different rules given by variable "rule".
-    '''
     if rule == 'widest':
         return torch.argmax((u-l).squeeze())
     elif rule == 'intervals':
@@ -300,9 +313,6 @@ def get_best_axis(net,device,tc,ac,l,u,alpha,l_diag_h,u_diag_h,rule='widest'):
 
 
 def solve_BaB(net,tc,ac,l,u,z0,start_time,device,maxtime = None,maxit = None,go_for_global_minima = False, picking_rule = 'upper', n_branches = 4, bounds = 'intervals', bounds_upper = 'PGD', axis_rule = 'intervals', optim = 'PGD', alpha_update_freq = 100, alpha_method = 'L', debug = False, track_improvement = False):
-    '''
-    Main function of our Branch and Bound algorithm.
-    '''
     d = u.shape[0]
     tol = 1e-6
     #l = torch.Tensor(l).unsqueeze(0).to(device)
@@ -400,8 +410,6 @@ def solve_BaB(net,tc,ac,l,u,z0,start_time,device,maxtime = None,maxit = None,go_
         else:
             L = min(Ls.keys())
         #print(sorted(Ls.keys()))
-    if maxit is not None:
-        return track_L, track_times
     if L > 0:
         '''
         Property is verified
